@@ -1,5 +1,3 @@
----
-
 # LLM Online Search Assistant 🔍🤖  
 
 **AI-Powered Research Orchestration Framework**  
@@ -11,7 +9,6 @@
 
 <img src="https://crawl4ai.com/assets/demo.gif" width="800" alt="Architecture Diagram">  
 
----
 
 ## What's New in v2.0 🚀  
 
