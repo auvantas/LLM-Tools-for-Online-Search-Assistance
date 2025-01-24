@@ -1,16 +1,16 @@
 ---
-title: LLM Online Search Assistant 🔍🤖
-description: AI-Powered Research Orchestration Framework combining Gemini, Llama3, and Mixtral with Crawl4AI web extraction
-badges:
-  - "[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-streamlit-app-url)"
-  - "[![PyPI](https://img.shields.io/pypi/v/llm-search-tools)](https://pypi.org/project/llm-search-tools/)"
-  - "[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)"
-image: "https://crawl4ai.com/assets/demo.gif"
----
-
 # LLM Online Search Assistant 🔍🤖
+
 **AI-Powered Research Orchestration Framework**  
 *Multi-model architecture combining Gemini, Llama3, and Mixtral with Crawl4AI web extraction*
+
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-streamlit-app-url)
+[![PyPI](https://img.shields.io/pypi/v/llm-search-tools)](https://pypi.org/project/llm-search-tools/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<img src="https://crawl4ai.com/assets/demo.gif" width="800" alt="Architecture Diagram">
+
+---
 
 ## Core Components 🧩
 
