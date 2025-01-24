@@ -2,9 +2,7 @@
 
 **Next-Generation Intelligent Web Scraping with Multi-LLM Orchestration**
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-streamlit-app-url)  
-[![Version](https://img.shields.io/badge/version-2.1-blue)](https://github.com/yourrepo/ai-web-scraper)  
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-streamlit-app-url)  [![Version](https://img.shields.io/badge/version-2.1-blue)](https://github.com/yourrepo/ai-web-scraper)  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
 
 <img src="https://crawl4ai.com/assets/demo.gif" width="800" alt="Scraping Demo">  
 
