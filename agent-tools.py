@@ -1,8 +1,11 @@
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 import google.generativeai as genai
 from groq import Groq
 import streamlit as st
 from crawl4ai import AsyncWebCrawler
+from crawl4ai.extraction import LLMExtractor, SemanticExtractor, Wrapper
+from crawl4ai.html2text import HTML2Text
+from crawl4ai.core import RetryPolicy, DiskCache
 import os
 import json
 import pandas as pd
@@ -10,7 +13,9 @@ from datetime import datetime
 import re
 from urllib.parse import urlparse
 import random
+import plotly.express as px
 from pydantic import BaseModel, Field
+from streamlit_tags import st_tags
 
 # ========== Configuration Constants ==========
 USER_AGENTS = [
@@ -72,13 +77,22 @@ USER_AGENTS = [
 
 TIMEOUT_SETTINGS = {
     "page_load": 30,
-    "script": 10
+    "script": 10,
+    "retry": 15  # Added from crawl4ai docs
 }
 
 HEADLESS_OPTIONS = [
     "--disable-gpu", "--disable-dev-shm-usage", "--window-size=1920,1080",
-    "--disable-search-engine-choice-screen", "--disable-blink-features=AutomationControlled"
+    "--disable-search-engine-choice-screen", "--disable-blink-features=AutomationControlled",
+    "--no-sandbox"  # Added for cloud compatibility
 ]
+
+STRATEGIES = {
+    "cosmic": "Full JS rendering with smart detection bypass",
+    "stealth": "Headless browsing with anti-detection",
+    "lightweight": "Basic HTML fetching",
+    "custom": "User-defined strategy"
+}
 
 SYSTEM_MESSAGE = """You are an intelligent text extraction assistant. Extract structured information into pure JSON format 
 without commentary. Process the following text:"""
@@ -89,8 +103,16 @@ Extract pagination URLs following numbered patterns. Return JSON with 'page_urls
 # ========== Core Models ==========
 class PaginationData(BaseModel):
     page_urls: List[str] = Field(default_factory=list)
+    next_page: Optional[str] = None
+    page_pattern: Optional[str] = None
 
-# ========== Main Application ==========
+class EnhancedResult(BaseModel):
+    content: Union[str, Dict]
+    metadata: Dict = Field(default_factory=dict)
+    statistics: Dict = Field(default_factory=dict)
+    screenshots: List[str] = Field(default_factory=list)
+
+# ========== Main Application with Enhancements ==========
 class LLMAgentOrchestrator:
     def __init__(self, groq_api_key: str, google_api_key: str):
         self.groq = Groq(api_key=groq_api_key)
@@ -103,6 +125,10 @@ class LLMAgentOrchestrator:
             "GEMINI_FLASH": genai.GenerativeModel('gemini-2.0-flash-exp')
         }
 
+        # Initialize enhanced components
+        self.html_converter = HTML2Text(parse_lists=True, parse_links=True, parse_images=True)
+        self.cache = DiskCache(ttl=3600, cache_dir=".crawl4ai_cache")
+        
         # Initialize all agents
         self.search = self.SearchAgent(self)
         self.data = self.DataAgent(self)
@@ -122,9 +148,16 @@ class LLMAgentOrchestrator:
             self.parent = parent
             
         def web_search(self, query: str) -> str:
-            return self.parent.models["GEMINI_FLASH"].generate_content(
+            cache_key = f"search_{hash(query)}"
+            if cached := self.parent.cache.get(cache_key):
+                return cached
+                
+            result = self.parent.models["GEMINI_FLASH"].generate_content(
                 f"Search: {query}", tools=[genai.Tool.from_google_search()]
             ).text
+            
+            self.parent.cache.set(cache_key, result)
+            return result
             
         def knowledge_retrieval(self, query: str) -> List[str]:
             return self.parent._groq_call(
@@ -141,28 +174,77 @@ class LLMAgentOrchestrator:
     class DataAgent:
         def __init__(self, parent):
             self.parent = parent
+            self.wrapper = Wrapper()
+            self.llm_extractor = LLMExtractor(llm_api=self._enhanced_groq_call)
+            self.semantic_extractor = SemanticExtractor()
+
+        def _enhanced_groq_call(self, prompt: str) -> Any:
+            """Add caching and retry mechanism"""
+            cache_key = f"groq_{hash(prompt)}"
+            if cached := self.parent.cache.get(cache_key):
+                return cached
             
-        def clean_data(self, html: str, fields: List[str] = None) -> Dict:
-            prompt = SYSTEM_MESSAGE
-            if fields:
-                prompt += f"\nExtract fields: {', '.join(fields)}"
-            prompt += f"\n\n{html[:30000]}"
-            return json.loads(self.parent._groq_call("MIXTRAL_8X7B", prompt))
+            result = self.parent.groq.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.parent.models["MIXTRAL_8X7B"],
+                temperature=0.7,
+                max_tokens=4000
+            ).choices[0].message.content
             
-        def find_pagination(self, html: str, url: str) -> List[str]:
+            self.parent.cache.set(cache_key, result)
+            return result
+
+        def clean_data(self, html: str, url: str, fields: List[str] = None) -> EnhancedResult:
+            """Enhanced with crawl4ai's hybrid extraction"""
             try:
-                prompt = f"{PROMPT_PAGINATION}\nCurrent URL: {url}\nHTML Content:\n{html[:15000]}"
-                response = self.parent.groq.chat.completions.create(
-                    model="llama-3-70b",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    max_tokens=2000
+                # Convert HTML to structured text
+                structured_html = self.parent.html_converter.convert(html)
+                
+                # Wrap content based on type
+                wrapped = self.wrapper.wrap(
+                    html=structured_html,
+                    url=url,
+                    extraction_type="article" if not fields else "custom"
                 )
-                content = response.choices[0].message.content
-                return PaginationData(**json.loads(content[content.find('{'):])).page_urls
+
+                # Extract using semantic rules
+                base_content = self.semantic_extractor.extract(wrapped)
+
+                # LLM extraction if fields specified
+                if fields:
+                    llm_content = self.llm_extractor.extract(
+                        content=wrapped,
+                        schema={field: "string" for field in fields},
+                        model="gpt-4"
+                    )
+                    base_content.update(llm_content)
+
+                return EnhancedResult(
+                    content=base_content,
+                    metadata=wrapped.metadata,
+                    statistics={
+                        "html_length": len(html),
+                        "text_length": len(structured_html),
+                        "elements_extracted": len(base_content)
+                    }
+                )
+            except Exception as e:
+                st.error(f"Extraction error: {str(e)}")
+                return EnhancedResult(content={})
+
+        def find_pagination(self, html: str, url: str) -> PaginationData:
+            """Enhanced with crawl4ai's pattern detection"""
+            try:
+                result = self.semantic_extractor.extract_pagination(
+                    html=html,
+                    base_url=url,
+                    pattern=r"page=\d+",
+                    strategy="relaxed"
+                )
+                return PaginationData(**result)
             except Exception as e:
                 st.error(f"Pagination error: {str(e)}")
-                return []
+                return PaginationData()
 
         def eda_analysis(self, data: str) -> Dict:
             return self.parent.models["GEMINI_FLASH"].generate_content(
@@ -280,7 +362,12 @@ class LLMAgentOrchestrator:
         def __init__(self, parent):
             self.parent = parent
             self._init_session_state()
-            
+            self.retry_policy = RetryPolicy(
+                attempts=3,
+                delay=10,
+                exponential_backoff=True
+            )
+
         def _init_session_state(self):
             defaults = {
                 'scraping_state': 'idle',
@@ -288,91 +375,81 @@ class LLMAgentOrchestrator:
                 'urls': [],
                 'fields': [],
                 'processed_urls': set(),
-                'scroll_count': 2
+                'scroll_count': 2,
+                'strategy': 'cosmic',
+                'proxy': None,
+                'js_strategy': 'auto_scroll',
+                'screenshots': False,
+                'max_depth': 1,
+                'error_log': []
             }
             for key, val in defaults.items():
                 st.session_state.setdefault(key, val)
 
         def setup_ui(self):
-            st.set_page_config(page_title="AI Web Scraper", page_icon="🕷️", layout="wide")
-            st.title("AI-Powered Web Scraper 🕷️")
+            st.set_page_config(page_title="AI Web Scraper Pro", page_icon="🕷️", layout="wide")
+            st.title("AI-Powered Web Scraper Pro 🕷️")
             
             with st.sidebar:
-                st.title("Configuration")
-                self._api_key_inputs()
-                self._url_input()
-                self._field_selection()
-                st.slider("Scroll Count", 1, 5, key='scroll_count')
+                self._main_config()
+                self._advanced_config()
+                self._js_config()
+            
+            self._results_dashboard()
 
-        def _api_key_inputs(self):
-            with st.expander("API Keys", expanded=False):
+        def _main_config(self):
+            st.title("Configuration")
+            with st.expander("API Keys", expanded=True):
                 st.session_state['groq_api_key'] = st.text_input("Groq Key", type="password")
                 st.session_state['gemini_api_key'] = st.text_input("Gemini Key", type="password")
-
-        def _url_input(self):
-            url_input = st.text_input("Enter URL(s) separated by spaces")
-            st.session_state['urls'] = [u.strip() for u in url_input.split() if u.strip()]
             
-        def _field_selection(self):
-            if st.toggle("Enable Field Extraction"):
-                st.session_state['fields'] = st_tags(
-                    label='Fields to Extract:',
-                    text='Press enter to add',
-                    maxtags=15,
-                    key='fields_input'
-                )
-
-        def run_scraper(self):
-            if st.sidebar.button("Start Scraping") and self._validate_inputs():
-                self._execute_scraping()
-
-            if st.session_state['scraping_state'] == 'processing':
-                with st.spinner("Scraping in progress..."):
-                    self._process_urls()
-                    st.session_state['scraping_state'] = 'completed'
-                    st.rerun()
-
-            if st.session_state['scraping_state'] == 'completed':
-                self._display_results()
-
-        def _validate_inputs(self):
-            if not st.session_state['urls']:
-                st.error("Please enter at least one URL")
-                return False
-            return True
-
-        def _execute_scraping(self):
-            st.session_state.update({
-                'scraping_state': 'processing',
-                'results': {'data': [], 'output_folder': self._generate_output_folder()}
-            })
-
-        def _process_urls(self):
-            crawler = AsyncWebCrawler(
-                strategy="comprehensive",
-                user_agent=random.choice(USER_AGENTS),
-                timeout=TIMEOUT_SETTINGS['page_load'],
-                scroll_count=st.session_state['scroll_count'],
-                browser_options=HEADLESS_OPTIONS
-            )
-
-            url_queue = st.session_state['urls'].copy()
-            while url_queue:
-                url = url_queue.pop(0)
-                if url in st.session_state['processed_urls']:
-                    continue
+            with st.expander("Core Settings"):
+                url_input = st.text_input("Enter URL(s) separated by spaces")
+                st.session_state['urls'] = [u.strip() for u in url_input.split() if u.strip()]
                 
-                try:
-                    result = crawler.crawl(url)
-                    cleaned = self.parent.data.clean_data(result.raw_html, st.session_state['fields'])
-                    st.session_state['results']['data'].append(cleaned)
+                st.selectbox(
+                    "Crawling Strategy",
+                    options=list(STRATEGIES.keys()),
+                    index=0,
+                    key='strategy',
+                    help=STRATEGIES[st.session_state.strategy]
+                )
+                
+                st.slider("Scroll Count", 1, 5, key='scroll_count')
+                st.checkbox("Enable Screenshots", key='screenshots')
+
+        def _advanced_config(self):
+            with st.expander("Advanced Settings"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.text_input("Proxy Server", key='proxy')
+                    st.number_input("Max Depth", 1, 5, key='max_depth')
+                with col2:
+                    st.checkbox("Enable Caching", True, key='caching')
+                    st.checkbox("Auto-Retry Failures", True, key='auto_retry')
+
+        def _js_config(self):
+            with st.expander("JavaScript Execution"):
+                st.selectbox(
+                    "JS Strategy",
+                    options=["auto_scroll", "click_interactive", "custom"],
+                    key='js_strategy'
+                )
+                if st.session_state.js_strategy == "custom":
+                    st.text_area("Custom JS Code", key='custom_js', height=150)
+
+        def _results_dashboard(self):
+            if st.session_state['scraping_state'] == 'completed':
+                tab1, tab2, tab3 = st.tabs(["Data", "Statistics", "Logs"])
+                
+                with tab1:
+                    self._display_results()
                     
-                    new_urls = self.parent.data.find_pagination(result.raw_html, url)
-                    url_queue.extend([u for u in new_urls if u not in st.session_state['processed_urls']])
+                with tab2:
+                    self._show_statistics()
                     
-                    st.session_state['processed_urls'].add(url)
-                except Exception as e:
-                    st.error(f"Error processing {url}: {str(e)}")
+                with tab3:
+                    self._show_error_log()
 
         def _display_results(self):
             st.subheader("Scraping Results")
@@ -387,10 +464,104 @@ class LLMAgentOrchestrator:
                     file_name=f"{st.session_state['results']['output_folder']}.json"
                 )
 
+        def _show_statistics(self):
+            stats = {
+                "Total URLs Processed": len(st.session_state['processed_urls']),
+                "Success Rate": f"{len(st.session_state['results']['data'])/len(st.session_state['urls'])*100:.1f}%",
+                "Total Data Size": f"{sum(len(str(d)) for d in st.session_state['results']['data']) / 1024:.2f} KB"
+            }
+            st.json(stats)
+            
+        def _show_error_log(self):
+            if st.session_state['error_log']:
+                st.write("### Error Log")
+                for error in st.session_state['error_log']:
+                    st.error(f"**{error['url']}**: {error['message']}")
+            else:
+                st.success("No errors recorded")
+
+        def run_scraper(self):
+            if st.sidebar.button("Start Scraping") and self._validate_inputs():
+                self._execute_scraping()
+
+            if st.session_state['scraping_state'] == 'processing':
+                with st.spinner("Scraping in progress..."):
+                    self._process_urls()
+                    st.session_state['scraping_state'] = 'completed'
+                    st.rerun()
+
+        def _process_urls(self):
+            crawler = AsyncWebCrawler(
+                strategy=st.session_state.strategy,
+                user_agent=random.choice(USER_AGENTS),
+                timeout=TIMEOUT_SETTINGS,
+                scroll_count=st.session_state['scroll_count'],
+                browser_options=HEADLESS_OPTIONS,
+                execute_js=True,
+                extract_metadata=True,
+                proxy=st.session_state.proxy,
+                cache=self.parent.cache if st.session_state.caching else None,
+                retry_policy=self.retry_policy,
+                on_error=self._handle_error,
+                js_snippet=st.session_state.js_strategy if st.session_state.js_strategy != "custom" else None,
+                custom_js=st.session_state.custom_js if st.session_state.js_strategy == "custom" else None
+            )
+
+            url_queue = [(url, 0) for url in st.session_state['urls']]  # (url, depth)
+            while url_queue:
+                url, depth = url_queue.pop(0)
+                if url in st.session_state['processed_urls'] or depth > st.session_state.max_depth:
+                    continue
+                
+                try:
+                    if cached := self.parent.cache.get(url):
+                        result = cached
+                    else:
+                        result = crawler.crawl(url)
+                        if st.session_state.screenshots:
+                            result.capture_screenshot()
+                        self.parent.cache.set(url, result)
+                    
+                    cleaned = self.parent.data.clean_data(result.raw_html, url, st.session_state['fields'])
+                    pagination = self.parent.data.find_pagination(result.raw_html, url)
+                    
+                    st.session_state['results']['data'].append(cleaned.content)
+                    st.session_state['processed_urls'].add(url)
+                    
+                    # Add new URLs to queue
+                    new_urls = [(u, depth+1) for u in pagination.page_urls 
+                              if u not in st.session_state['processed_urls']]
+                    url_queue.extend(new_urls)
+
+                except Exception as e:
+                    self._handle_error(url, str(e))
+                    if st.session_state.auto_retry:
+                        url_queue.append((url, depth))  # Retry
+
+        def _handle_error(self, url: str, error: str):
+            st.session_state['error_log'].append({
+                "url": url,
+                "message": error,
+                "timestamp": datetime.now().isoformat()
+            })
+
         def _generate_output_folder(self):
+            # Enhanced naming convention
             domain = re.sub(r'^www\.', '', urlparse(st.session_state['urls'][0]).netloc)
             clean_domain = re.sub(r'\W+', '_', domain)
-            return f"{clean_domain}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            return f"{clean_domain}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_v2"
+
+        def _validate_inputs(self):
+            if not st.session_state['urls']:
+                st.error("Please enter at least one URL")
+                return False
+            return True
+
+        def _execute_scraping(self):
+            st.session_state.update({
+                'scraping_state': 'processing',
+                'results': {'data': [], 'output_folder': self._generate_output_folder()}
+            })
 
     def _groq_call(self, model: str, prompt: str) -> Any:
         return self.groq.chat.completions.create(
