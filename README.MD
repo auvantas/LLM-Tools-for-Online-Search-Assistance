@@ -1,15 +1,16 @@
 ---
 title: LLM Online Search Assistant 🔍🤖
-description: AI-Powered Research Orchestration Framework combining Gemini, Llama3, and Mixtral
+description: AI-Powered Research Orchestration Framework combining Gemini, Llama3, and Mixtral with Crawl4AI web extraction
 badges:
   - "[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-streamlit-app-url)"
   - "[![PyPI](https://img.shields.io/pypi/v/llm-search-tools)](https://pypi.org/project/llm-search-tools/)"
   - "[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)"
+image: "https://crawl4ai.com/assets/demo.gif"
 ---
 
-<img src="https://crawl4ai.com/assets/demo.gif" width="800" alt="Architecture Diagram">
-
----
+# LLM Online Search Assistant 🔍🤖
+**AI-Powered Research Orchestration Framework**  
+*Multi-model architecture combining Gemini, Llama3, and Mixtral with Crawl4AI web extraction*
 
 ## Core Components 🧩
 
@@ -41,22 +42,22 @@ export GOOGLE_API_KEY="your-key-here"
 ```python
 from llm_search_tools import LLMAgentOrchestrator
 
-agent = LLMAgentOrchestrator(groq_api_key="your-groq-key", google_api_key="your-google-key")
+agent = LLMAgentOrchestrator(groq_api_key, google_api_key)
 
 # Gemini-powered web search with Google integration
-results = agent.search_agent.web_search("LLM agent architectures 2024")
+results = agent.search.web_search("LLM agent architectures 2024")
 
 # Llama3-70B citation extraction
-citations = agent.search_agent.knowledge_retrieval(results)
+citations = agent.search.manage_citations(results)
 ```
 
 ### 2. Data Processing Pipeline
 ```python
 # Mixtral 8x7B for large-scale cleaning
-cleaned_data = agent.data_agent.clean_data(raw_dataset)
+cleaned_data = agent.data.clean_data(raw_dataset)
 
 # Llama3-70B for anomaly detection
-anomalies = agent.domain_agent.detect_fraud(cleaned_data)
+anomalies = agent.data.detect_anomalies(cleaned_data)
 ```
 
 ### 3. Streamlit-Crawl4AI Integration
@@ -71,8 +72,8 @@ def analyze_url(url: str):
     
     # Model routing based on content length
     if len(content) > 32000:
-        return agent.data_agent.clean_data(content)
-    return agent.nlp_agent.analyze_sentiment(content)
+        return agent.process(content, model="MIXTRAL_8X7B")
+    return agent.process(content, model="LLAMA3_70B_VERSATILE")
 
 st.title("Web Content Analyzer")
 url = st.text_input("Enter URL")
@@ -89,8 +90,9 @@ if st.button("Analyze"):
 ### Model-Specific Parameters
 ```python
 # Configure Mixtral for financial analysis
-agent.domain_agent.analyze_finance(
+agent.domain.analyze_finance(
     financial_data,
+    model="MIXTRAL_8X7B",
     params={
         "temperature": 0.2,
         "max_tokens": 2048,
@@ -99,8 +101,9 @@ agent.domain_agent.analyze_finance(
 )
 
 # Optimize Gemini for code generation
-agent.code_agent.generate_api(
+agent.code.generate_api(
     "REST API for stock analysis",
+    model="GEMINI_FLASH",
     tools=[genai.Tool.from_google_search()]
 )
 ```
@@ -108,40 +111,40 @@ agent.code_agent.generate_api(
 ### Multi-Agent Workflow
 ```python
 # Task decomposition with Llama3-70B
-steps = agent.domain_agent.analyze_finance("Market trend analysis report")
+steps = agent.task.decompose_task("Market trend analysis report")
 
 # Agent collaboration via Gemma-2-9B
-coordination = agent.data_agent.clean_data(steps)
+coordination = agent.task.collaborate_agents(steps)
 ```
 
 ---
 
 ## Key Integration Patterns 🔄
 
-### 1. Content-Aware Routing
+1. **Content-Aware Routing**
 ```python
 def process_content(content: str):
     if "financial" in content.lower():
-        return agent.domain_agent.analyze_finance(content)
+        return agent.domain.analyze_finance(content)
     elif len(content) > 10000:
-        return agent.data_agent.clean_data(content)
-    return agent.nlp_agent.rewrite_query(content)
+        return agent.data.clean_data(content)
+    return agent.nlp.summarize(content)
 ```
 
-### 2. Safety-First Processing
+2. **Safety-First Processing**
 ```python
 def safe_processing(content: str):
-    safety_check = agent.nlp_agent.rewrite_query(content, model="LLAMA_GUARD_3_8B")
-    return agent.process(content) if safety_check else None
+    safety_check = agent.safety.check(content, model="LLAMA_GUARD_3_8B")
+    return agent.process(content) if safety_check.approved else None
 ```
 
-### 3. Multi-Modal Analysis
+3. **Multi-Modal Analysis**
 ```python
 # Gemini Flash for image analysis
-screenshot_analysis = agent.nlp_agent.rewrite_query("dashboard.png")
+screenshot_analysis = agent.multimodal.analyze_image("dashboard.png")
 
 # Combine with text analysis
-combined_insights = agent.nlp_agent.analyze_sentiment(
+combined_insights = agent.nlp.summarize(
     f"{text_data}\n\nImage analysis: {screenshot_analysis}"
 )
 ```
@@ -162,9 +165,9 @@ CMD ["streamlit", "run", "/app/app.py"]
 ## Contribution & Support 🤝
 
 **Guidelines**:
-- Use `Llama3-70B` for core logic changes.
-- Apply `Gemini Flash` for documentation generation.
-- Validate with `Llama Guard` for content safety.
+- Use `Llama3-70B` for core logic changes
+- Apply `Gemini Flash` for documentation generation
+- Validate with `Llama Guard` for content safety
 
 **Resources**:
 - [Crawl4AI Documentation](https://github.com/unclecode/crawl4ai)
