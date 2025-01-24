@@ -1,4 +1,3 @@
-```markdown
 # AI Web Scraper Pro v2.1 🕷️⚡
 
 **Next-Generation Intelligent Web Scraping with Multi-LLM Orchestration**
@@ -178,5 +177,4 @@ CMD ["streamlit", "run", "/app/scraper_pro.py"]
 
 **License**: MIT  
 **Maintainer**: AI Scraping Team  
-*Powered by Groq, Gemini, and Crawl4AI technologies*  
-```
+*Powered by Groq, Gemini, and Crawl4AI technologies*
