@@ -10,11 +10,64 @@ from datetime import datetime
 import re
 from urllib.parse import urlparse
 import random
+from pydantic import BaseModel, Field
 
 # ========== Configuration Constants ==========
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    # ... (keep all existing user agents from the second script)
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:90.0) Gecko/20100101 Firefox/90.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.66 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_0_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 13_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.2 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_0_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 13_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.1 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:85.0) Gecko/20100101 Firefox/85.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:85.0) Gecko/20100101 Firefox/85.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 13_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.66 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"
 ]
 
 TIMEOUT_SETTINGS = {
@@ -27,36 +80,15 @@ HEADLESS_OPTIONS = [
     "--disable-search-engine-choice-screen", "--disable-blink-features=AutomationControlled"
 ]
 
-HEADLESS_OPTIONS_DOCKER = [
-    "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
-    "--disable-software-rasterizer", "--disable-setuid-sandbox", "--remote-debugging-port=9222",
-    "--disable-search-engine-choice-screen"
-]
+SYSTEM_MESSAGE = """You are an intelligent text extraction assistant. Extract structured information into pure JSON format 
+without commentary. Process the following text:"""
 
-NUMBER_SCROLL = 2
+PROMPT_PAGINATION = """You are an assistant that extracts pagination elements from HTML content. 
+Extract pagination URLs following numbered patterns. Return JSON with 'page_urls' array of full URLs."""
 
-SYSTEM_MESSAGE = """You are an intelligent text extraction and conversion assistant. Your task is to extract structured information 
-from the given text and convert it into a pure JSON format. The JSON should contain only the structured data extracted from the text, 
-with no additional commentary, explanations, or extraneous information. 
-You could encounter cases where you can't find the data of the fields you have to extract or the data will be in a foreign language.
-Please process the following text and provide the output in pure JSON format with no words before or after the JSON:"""
-
-PROMPT_PAGINATION = """
-You are an assistant that extracts pagination elements from markdown content of websites. Your goal is to act as a universal pagination scraper for URLs from all websites.
-
-Please extract:
-- A list of page URLs for pagination that follow a numbered pattern. 
-- Generate subsequent URLs even if only a partial pattern exists.
-
-Provide output as a JSON object with the following structure:
-{
-    "page_urls": ["url1", "url2", "url3",...,"urlN"]
-}
-
-Do not include any additional text or explanations.
-Initial URL: {url}
-Page content:
-"""
+# ========== Core Models ==========
+class PaginationData(BaseModel):
+    page_urls: List[str] = Field(default_factory=list)
 
 # ========== Main Application ==========
 class LLMAgentOrchestrator:
@@ -65,16 +97,26 @@ class LLMAgentOrchestrator:
         genai.configure(api_key=google_api_key)
         self.models = {
             "GEMMA2_9B_IT": "gemma2-9b-it",
-            "LLAMA_3_70B_VERSATILE": "llama-3.3-70b-versatile",
+            "LLAMA_3_70B_VERSATILE": "llama-3-3-70b-versatile",
             "LLAMA_GUARD_3_8B": "llama-guard-3-8b",
             "MIXTRAL_8X7B": "mixtral-8x7b-32768",
             "GEMINI_FLASH": genai.GenerativeModel('gemini-2.0-flash-exp')
         }
-        
+
+        # Initialize all agents
         self.search = self.SearchAgent(self)
         self.data = self.DataAgent(self)
+        self.task = self.TaskAgent(self)
+        self.nlp = self.NLPAgent(self)
+        self.code = self.CodeAgent(self)
+        self.domain = self.DomainAgent(self)
+        self.viz = self.VizAgent(self)
+        self.memory = self.MemoryAgent(self)
+        self.multimodal = self.MultiModalAgent(self)
+        self.eval = self.EvalAgent(self)
         self.streamlit = self.StreamlitAgent(self)
 
+    # ========== Agent Implementations ==========
     class SearchAgent:
         def __init__(self, parent):
             self.parent = parent
@@ -83,28 +125,156 @@ class LLMAgentOrchestrator:
             return self.parent.models["GEMINI_FLASH"].generate_content(
                 f"Search: {query}", tools=[genai.Tool.from_google_search()]
             ).text
+            
+        def knowledge_retrieval(self, query: str) -> List[str]:
+            return self.parent._groq_call(
+                "LLAMA_3_70B_VERSATILE",
+                f"Retrieve knowledge about {query} from vector DB"
+            )
+            
+        def manage_citations(self, text: str) -> Dict:
+            return self.parent._groq_call(
+                "LLAMA_3_70B_VERSATILE",
+                f"Extract citations from:\n{text}"
+            )
 
     class DataAgent:
         def __init__(self, parent):
             self.parent = parent
             
         def clean_data(self, html: str, fields: List[str] = None) -> Dict:
-            """Enhanced data cleaning with field-specific extraction"""
             prompt = SYSTEM_MESSAGE
             if fields:
-                prompt += f"\nExtract the following fields: {', '.join(fields)}."
-            prompt += f"\n\nPage content:\n{html}"
-            
+                prompt += f"\nExtract fields: {', '.join(fields)}"
+            prompt += f"\n\n{html[:30000]}"
             return json.loads(self.parent._groq_call("MIXTRAL_8X7B", prompt))
-
+            
         def find_pagination(self, html: str, url: str) -> List[str]:
-            """Find additional pages using LLM-powered analysis"""
-            prompt = PROMPT_PAGINATION.format(url=url) + html[:5000]  # Limit content size
             try:
-                result = json.loads(self.parent._groq_call("MIXTRAL_8X7B", prompt))
-                return result.get('page_urls', [])
-            except json.JSONDecodeError:
+                prompt = f"{PROMPT_PAGINATION}\nCurrent URL: {url}\nHTML Content:\n{html[:15000]}"
+                response = self.parent.groq.chat.completions.create(
+                    model="llama-3-70b",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3,
+                    max_tokens=2000
+                )
+                content = response.choices[0].message.content
+                return PaginationData(**json.loads(content[content.find('{'):])).page_urls
+            except Exception as e:
+                st.error(f"Pagination error: {str(e)}")
                 return []
+
+        def eda_analysis(self, data: str) -> Dict:
+            return self.parent.models["GEMINI_FLASH"].generate_content(
+                f"Perform EDA on:\n{data}"
+            ).text
+            
+        def detect_anomalies(self, data: str) -> Dict:
+            return self.parent._groq_call(
+                "LLAMA_3_70B_VERSATILE",
+                f"Find anomalies in:\n{data}"
+            )
+
+    class TaskAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            
+        def decompose_task(self, task: str) -> List[str]:
+            return self.parent._groq_call(
+                "LLAMA_3_70B_VERSATILE",
+                f"Break down task: {task}"
+            )
+            
+        def collaborate_agents(self, task: str) -> str:
+            return self.parent._groq_call(
+                "GEMMA2_9B_IT",
+                f"Coordinate agents for: {task}"
+            )
+
+    class NLPAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            
+        def rewrite_query(self, query: str) -> str:
+            return self.parent.models["GEMINI_FLASH"].generate_content(
+                f"Optimize query: {query}"
+            ).text
+            
+        def summarize(self, text: str) -> str:
+            return self.parent._groq_call(
+                "MIXTRAL_8X7B",
+                f"Summarize:\n{text}"
+            )
+
+    class CodeAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            
+        def generate_api(self, spec: str) -> str:
+            return self.parent.models["GEMINI_FLASH"].generate_content(
+                f"Create API for: {spec}"
+            ).text
+            
+        def refactor_code(self, code: str) -> str:
+            return self.parent._groq_call(
+                "LLAMA_3_70B_VERSATILE",
+                f"Refactor:\n{code}"
+            )
+
+    class DomainAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            
+        def analyze_finance(self, data: Dict) -> Dict:
+            return self.parent._groq_call(
+                "MIXTRAL_8X7B",
+                f"Analyze financial data:\n{data}"
+            )
+            
+        def research_papers(self, query: str) -> str:
+            return self.parent.models["GEMINI_FLASH"].generate_content(
+                f"Find papers about {query}",
+                tools=[genai.Tool.from_google_search()]
+            ).text
+
+    class VizAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            
+        def create_dashboard(self, data: str) -> str:
+            return self.parent.models["GEMINI_FLASH"].generate_content(
+                f"Generate dashboard code for:\n{data}"
+            ).text
+
+    class MemoryAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            self.context = ""
+            
+        def update_context(self, text: str) -> None:
+            self.context = self.parent._groq_call(
+                "MIXTRAL_8X7B",
+                f"Update context with:\n{text}"
+            )
+
+    class MultiModalAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            
+        def analyze_image(self, image_path: str) -> str:
+            return self.parent.models["GEMINI_FLASH"].generate_content(
+                genai.upload_file(image_path)
+            ).text
+
+    class EvalAgent:
+        def __init__(self, parent):
+            self.parent = parent
+            
+        def benchmark_performance(self, task: str) -> Dict:
+            return self.parent._groq_call(
+                "LLAMA_3_70B_VERSATILE",
+                f"Evaluate performance on: {task}"
+            )
 
     class StreamlitAgent:
         def __init__(self, parent):
@@ -117,12 +287,11 @@ class LLMAgentOrchestrator:
                 'results': None,
                 'urls': [],
                 'fields': [],
-                'model_selection': 'gpt-4-turbo',
-                'processed_urls': set()
+                'processed_urls': set(),
+                'scroll_count': 2
             }
             for key, val in defaults.items():
-                if key not in st.session_state:
-                    st.session_state[key] = val
+                st.session_state.setdefault(key, val)
 
         def setup_ui(self):
             st.set_page_config(page_title="AI Web Scraper", page_icon="🕷️", layout="wide")
@@ -133,33 +302,28 @@ class LLMAgentOrchestrator:
                 self._api_key_inputs()
                 self._url_input()
                 self._field_selection()
-                st.slider("Scroll Count", 1-5, value=NUMBER_SCROLL, key='scroll_count')
+                st.slider("Scroll Count", 1, 5, key='scroll_count')
 
         def _api_key_inputs(self):
             with st.expander("API Keys", expanded=False):
-                st.session_state['openai_api_key'] = st.text_input("OpenAI Key", type="password")
-                st.session_state['gemini_api_key'] = st.text_input("Gemini Key", type="password")
                 st.session_state['groq_api_key'] = st.text_input("Groq Key", type="password")
+                st.session_state['gemini_api_key'] = st.text_input("Gemini Key", type="password")
 
         def _url_input(self):
-            url_input = st.text_input("Enter URL(s) separated by space")
-            st.session_state['urls'] = url_input.strip().split()
+            url_input = st.text_input("Enter URL(s) separated by spaces")
+            st.session_state['urls'] = [u.strip() for u in url_input.split() if u.strip()]
             
         def _field_selection(self):
             if st.toggle("Enable Field Extraction"):
                 st.session_state['fields'] = st_tags(
                     label='Fields to Extract:',
                     text='Press enter to add',
-                    maxtags=-1,
+                    maxtags=15,
                     key='fields_input'
                 )
 
         def run_scraper(self):
-            if st.sidebar.button("Start Scraping"):
-                if not self._validate_inputs():
-                    return
-                
-                st.session_state['scraping_state'] = 'processing'
+            if st.sidebar.button("Start Scraping") and self._validate_inputs():
                 self._execute_scraping()
 
             if st.session_state['scraping_state'] == 'processing':
@@ -178,11 +342,10 @@ class LLMAgentOrchestrator:
             return True
 
         def _execute_scraping(self):
-            self.parent.search.web_search("Scraping initialization")
-            st.session_state['results'] = {
-                'data': [],
-                'output_folder': self._generate_output_folder()
-            }
+            st.session_state.update({
+                'scraping_state': 'processing',
+                'results': {'data': [], 'output_folder': self._generate_output_folder()}
+            })
 
         def _process_urls(self):
             crawler = AsyncWebCrawler(
@@ -204,7 +367,6 @@ class LLMAgentOrchestrator:
                     cleaned = self.parent.data.clean_data(result.raw_html, st.session_state['fields'])
                     st.session_state['results']['data'].append(cleaned)
                     
-                    # Find and queue pagination URLs
                     new_urls = self.parent.data.find_pagination(result.raw_html, url)
                     url_queue.extend([u for u in new_urls if u not in st.session_state['processed_urls']])
                     
