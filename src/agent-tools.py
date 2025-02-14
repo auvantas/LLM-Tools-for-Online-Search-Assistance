@@ -452,505 +452,589 @@ class LLMAgentOrchestrator:
             for key, val in defaults.items():
                 st.session_state.setdefault(key, val)
 
-        def setup_ui(self):
-            st.set_page_config(page_title="AI Web Scraper Pro", layout="wide")
-            
-            # Sidebar for configuration
-            with st.sidebar:
-                st.title("Configuration")
-                
-                # API Keys Section
-                st.header("API Keys")
-                groq_key = st.text_input("Groq API Key", type="password")
-                google_key = st.text_input("Google API Key", type="password")
-                
-                # Source Integration
-                st.header("Custom Sources")
-                source_type = st.selectbox("Add Source", 
-                    ["Website", "PDF", "Text", "Markdown"])
-                
-                if source_type == "Website":
-                    url = st.text_input("Enter URL")
-                    if url and st.button("Add Website"):
-                        st.session_state.sources.append({"type": "website", "path": url})
-                else:
-                    uploaded_file = st.file_uploader(f"Upload {source_type} file", 
-                        type=source_type.lower())
-                    if uploaded_file:
-                        st.session_state.custom_files.append({
-                            "type": source_type.lower(),
-                            "name": uploaded_file.name,
-                            "content": uploaded_file.read()
-                        })
-                
-                # Display Added Sources
-                if st.session_state.sources or st.session_state.custom_files:
-                    st.header("Added Sources")
-                    for src in st.session_state.sources:
-                        st.text(f"🌐 {src['path']}")
-                    for file in st.session_state.custom_files:
-                        st.text(f"📄 {file['name']}")
-                    
-                    if st.button("Clear Sources"):
-                        st.session_state.sources = []
-                        st.session_state.custom_files = []
-
-            # Main content area
+        def run(self):
+            """Run the Streamlit interface with template support"""
             st.title("AI Web Scraper Pro")
             
-            # Dual Input Mode
-            col1, col2 = st.columns(2)
+            # Main navigation
+            tabs = st.tabs(["Research", "Templates", "Results", "Settings"])
             
-            with col1:
-                st.subheader("Natural Language Query")
-                prompt = st.text_area("Enter your research query", 
-                    value=st.session_state.prompt,
-                    height=100)
-                
-            with col2:
-                st.subheader("CLI Mode")
-                cli_input = st.text_area("Enter CLI commands", 
-                    value=st.session_state.cli_input,
-                    height=100)
-            
-            # Process Button
-            if st.button("Process"):
-                combined_input = {
-                    "prompt": prompt if prompt else None,
-                    "cli": cli_input if cli_input else None,
-                    "sources": st.session_state.sources,
-                    "files": st.session_state.custom_files
-                }
-                self.process_input(combined_input)
+            with tabs[0]:
+                self._research_tab()
+            with tabs[1]:
+                self._templates_tab()
+            with tabs[2]:
+                self._results_tab()
+            with tabs[3]:
+                self._settings_tab()
 
-            # Display results
-            self.display_results()
+        def _research_tab(self):
+            """Main research interface"""
+            # Sidebar configuration
+            with st.sidebar:
+                st.header("Configuration")
+                
+                # API Keys section
+                with st.expander("API Keys", expanded=False):
+                    self._configure_api_keys()
+                
+                # Template selection
+                st.subheader("Research Template")
+                template_names = list(self.template_cache.keys())
+                selected_template = st.selectbox("Select Template", template_names)
+                
+                if selected_template:
+                    st.text_area("Template Preview", self.template_cache[selected_template], height=200)
+                
+                # Industry/Market Selection
+                st.subheader("Target Market")
+                industry = st.text_input("Industry/Market of Interest")
+                
+                # Report Parameters
+                st.subheader("Report Parameters")
+                report_params = self._configure_report_params()
+
+            # Main content area
+            self._display_research_interface(selected_template, industry, report_params)
+
+        def _templates_tab(self):
+            """Template management interface"""
+            st.header("Template Management")
+            
+            # Template list
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.subheader("Available Templates")
+                template_list = self._list_templates()
+                
+                if template_list:
+                    for template in template_list:
+                        with st.expander(f"📄 {template['name']}"):
+                            st.markdown(template['content'])
+                            col1, col2, col3 = st.columns([1, 1, 1])
+                            with col1:
+                                if st.button("Edit", key=f"edit_{template['name']}"):
+                                    st.session_state.editing_template = template['name']
+                            with col2:
+                                if st.button("Duplicate", key=f"duplicate_{template['name']}"):
+                                    self._duplicate_template(template['name'])
+                            with col3:
+                                if st.button("Delete", key=f"delete_{template['name']}"):
+                                    self._delete_template(template['name'])
+            
+            with col2:
+                st.subheader("Add New Template")
+                self._add_template_form()
+            
+            # Template editor
+            if hasattr(st.session_state, 'editing_template'):
+                self._template_editor(st.session_state.editing_template)
+
+        def _list_templates(self):
+            """List all available templates"""
+            templates = []
+            try:
+                for file in os.listdir(self.templates_dir):
+                    if file.endswith('.md'):
+                        with open(os.path.join(self.templates_dir, file), 'r') as f:
+                            templates.append({
+                                'name': file,
+                                'content': f.read(),
+                                'path': os.path.join(self.templates_dir, file)
+                            })
+            except Exception as e:
+                st.error(f"Error loading templates: {str(e)}")
+            return templates
+
+        def _add_template_form(self):
+            """Form for adding new templates"""
+            with st.form("new_template"):
+                template_name = st.text_input("Template Name")
+                template_content = st.text_area(
+                    "Template Content", 
+                    height=400,
+                    placeholder="# Template Title\n\n## Overview\nDescribe your template...\n\n## Sections\n1. Section 1\n2. Section 2"
+                )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    template_type = st.selectbox(
+                        "Template Type",
+                        ["Research Brief", "Market Analysis", "Competitor Analysis", "Investment Thesis", "Custom"]
+                    )
+                with col2:
+                    template_format = st.selectbox(
+                        "Output Format",
+                        ["Markdown", "Structured JSON", "Report", "Dashboard"]
+                    )
+                
+                submitted = st.form_submit_button("Add Template")
+                
+                if submitted and template_name and template_content:
+                    self._save_template(template_name, template_content, template_type, template_format)
+                    st.success(f"Template '{template_name}' added successfully!")
+
+        def _template_editor(self, template_name):
+            """Edit existing template"""
+            st.header(f"Editing: {template_name}")
+            
+            template_path = os.path.join(self.templates_dir, template_name)
+            try:
+                with open(template_path, 'r') as f:
+                    current_content = f.read()
+            except Exception as e:
+                st.error(f"Error loading template: {str(e)}")
+                return
+            
+            with st.form("edit_template"):
+                new_content = st.text_area(
+                    "Template Content",
+                    value=current_content,
+                    height=600
+                )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.form_submit_button("Save Changes"):
+                        self._update_template(template_name, new_content)
+                        st.success("Template updated successfully!")
+                with col2:
+                    if st.form_submit_button("Cancel"):
+                        del st.session_state.editing_template
+
+        def _save_template(self, name, content, type, format):
+            """Save new template to file"""
+            if not name.endswith('.md'):
+                name = f"{name}.md"
+            
+            path = os.path.join(self.templates_dir, name)
+            try:
+                with open(path, 'w') as f:
+                    f.write(f"---\ntype: {type}\nformat: {format}\n---\n\n{content}")
+                self.template_cache[name] = content
+            except Exception as e:
+                st.error(f"Error saving template: {str(e)}")
+
+        def _update_template(self, name, content):
+            """Update existing template"""
+            path = os.path.join(self.templates_dir, name)
+            try:
+                with open(path, 'w') as f:
+                    f.write(content)
+                self.template_cache[name] = content
+            except Exception as e:
+                st.error(f"Error updating template: {str(e)}")
+
+        def _duplicate_template(self, name):
+            """Duplicate existing template"""
+            try:
+                with open(os.path.join(self.templates_dir, name), 'r') as f:
+                    content = f.read()
+                
+                new_name = f"copy_of_{name}"
+                self._save_template(new_name, content, "Copy", "Markdown")
+                st.success(f"Template duplicated as '{new_name}'")
+            except Exception as e:
+                st.error(f"Error duplicating template: {str(e)}")
+
+        def _delete_template(self, name):
+            """Delete template file"""
+            if st.checkbox(f"Confirm deletion of '{name}'"):
+                try:
+                    os.remove(os.path.join(self.templates_dir, name))
+                    del self.template_cache[name]
+                    st.success(f"Template '{name}' deleted successfully!")
+                except Exception as e:
+                    st.error(f"Error deleting template: {str(e)}")
+
+        def _configure_report_params(self):
+            """Configure report generation parameters"""
+            return {
+                "time_horizon": st.slider("Time Horizon (Years)", 1, 10, 5),
+                "depth": st.select_slider(
+                    "Analysis Depth", 
+                    options=["Basic", "Standard", "Comprehensive"], 
+                    value="Standard"
+                ),
+                "regions": st.multiselect(
+                    "Target Regions", 
+                    ["North America", "Europe", "Asia-Pacific", "Latin America", "Middle East & Africa"],
+                    default=["North America", "Europe", "Asia-Pacific"]
+                ),
+                "focus_areas": st.multiselect(
+                    "Focus Areas",
+                    ["Market Overview", "Financials", "Competition", "Investment Opportunities", "Trends"],
+                    default=["Market Overview", "Competition"]
+                )
+            }
+
+        def _display_research_interface(self, template, industry, params):
+            """Display main research interface"""
+            if industry and template:
+                st.header("Research Query")
+                # Generate research brief from template
+                brief = self.template_cache.get(template, "").replace(
+                    "[industry/market of interest]", industry
+                ).replace(
+                    "[Title of Brief]", f"{industry} Market Analysis"
+                )
+                
+                # Display formatted brief
+                st.markdown(brief)
+                
+                # Process button
+                if st.button("Generate Report"):
+                    self._generate_comprehensive_report(industry, params)
+
+                st.header("Quick Stats")
+                self._display_quick_stats(industry)
+
+        def _results_tab(self):
+            """Display results tab"""
+            if st.session_state.results:
+                self.display_results()
+
+        def _settings_tab(self):
+            """Display settings tab"""
+            st.header("Settings")
+            st.subheader("API Keys")
+            self._configure_api_keys()
+
+        def _configure_api_keys(self):
+            """Configure API keys"""
+            st.subheader("API Keys")
+            groq_key = st.text_input("Groq API Key", type="password")
+            google_key = st.text_input("Google API Key", type="password")
 
         def display_results(self):
-            """Display processed results in a structured format"""
+            """Enhanced display of research results"""
             if not st.session_state.results:
                 return
 
-            # Report style selector
-            report_styles = ["Executive Summary", "Technical Analysis", "Market Research", "Trend Report", "Custom"]
-            selected_style = st.selectbox("Select Report Style", report_styles)
+            # Report style selector with research brief specific styles
+            report_styles = [
+                "Executive Summary",
+                "Investor Presentation",
+                "Technical Deep Dive",
+                "Market Entry Analysis",
+                "Competitive Intelligence"
+            ]
+            selected_style = st.selectbox("Report Style", report_styles)
             
-            # Export format selector
-            export_formats = ["CSV", "Excel", "JSON", "PDF", "Markdown"]
+            # Export options
+            export_formats = ["PDF Report", "Excel Dashboard", "PowerPoint", "Interactive HTML"]
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.header("Results")
+                st.header("Research Results")
             with col2:
                 export_format = st.selectbox("Export Format", export_formats)
-                if st.button("Export Data"):
-                    self._export_data(export_format)
+                if st.button("Export Report"):
+                    self._export_research_report(export_format)
 
-            # Create tabs for different views
-            tabs = st.tabs(["Overview", "Sources", "Analysis", "Visualizations", "Raw Data"])
+            # Create tabs for different sections
+            tabs = st.tabs([
+                "Executive Overview",
+                "Market Analysis",
+                "Financial Analysis",
+                "Competitive Landscape",
+                "Investment Opportunities",
+                "Trends & Innovation"
+            ])
             
             with tabs[0]:
-                self._display_overview(selected_style)
+                self._display_executive_overview()
             with tabs[1]:
-                self._display_sources()
+                self._display_market_analysis()
             with tabs[2]:
-                self._display_analysis()
+                self._display_financial_analysis()
             with tabs[3]:
-                self._display_visualizations()
+                self._display_competitive_landscape()
             with tabs[4]:
-                self._display_raw_data()
+                self._display_investment_opportunities()
+            with tabs[5]:
+                self._display_trends()
 
-        def _display_overview(self, report_style):
-            """Display overview of results with customizable report style"""
+        def _display_executive_overview(self):
+            """Display executive overview of research results"""
             results = st.session_state.results
             
-            # Summary metrics with enhanced styling
-            st.markdown(f"### {report_style} Dashboard")
-            metrics_container = st.container()
-            col1, col2, col3, col4 = metrics_container.columns(4)
+            # Key metrics dashboard
+            st.subheader("Key Metrics")
+            cols = st.columns(4)
+            with cols[0]:
+                st.metric(
+                    "Market Size",
+                    f"${results['market_overview']['market_size']['value']}B",
+                    delta="↑ 12.5%"
+                )
+            with cols[1]:
+                st.metric(
+                    "CAGR",
+                    f"{results['market_overview']['cagr']['value']}%",
+                    delta="↑ 2.1%"
+                )
+            with cols[2]:
+                st.metric(
+                    "Companies Analyzed",
+                    len(results['competition']['key_players']),
+                    delta="↑ 15"
+                )
+            with cols[3]:
+                st.metric(
+                    "Investment Score",
+                    "8.5/10",
+                    delta="↑ 0.5"
+                )
             
-            with col1:
-                st.metric("Sources", 
-                    len(results.get("sources_processed", [])),
-                    delta=None,
-                    help="Total number of processed sources")
-            with col2:
-                success_rate = self._calculate_success_rate(results)
-                st.metric("Success Rate", 
-                    f"{success_rate}%",
-                    delta=None,
-                    help="Percentage of successful source processing")
-            with col3:
-                st.metric("Data Points", 
-                    len(results.get("structured_data", {})),
-                    delta=None,
-                    help="Total number of extracted data points")
-            with col4:
-                processing_time = results.get("processing_time", 0)
-                st.metric("Processing Time", 
-                    f"{processing_time:.2f}s",
-                    delta=None,
-                    help="Total time taken to process all sources")
+            # Executive summary
+            st.subheader("Executive Summary")
+            st.markdown(self._generate_executive_summary())
+            
+            # Key findings
+            st.subheader("Key Findings")
+            for finding in self._generate_key_findings():
+                st.info(finding)
 
-            # Quick insights with filtering
-            if "prompt_analysis" in results:
-                st.subheader("Query Analysis")
-                with st.expander("View Details", expanded=True):
-                    self._display_filtered_insights(results["prompt_analysis"])
-
-        def _display_sources(self):
-            """Display processed source information with advanced filtering"""
+        def _generate_executive_summary(self):
+            """Generate an executive summary from the research results"""
             results = st.session_state.results
+            industry = results['metadata']['industry']
             
-            # Source type filter
-            source_types = list(set(s["type"] for s in results.get("sources_processed", [])))
-            selected_types = st.multiselect("Filter by Source Type", source_types, default=source_types)
+            summary = f"""
+            ## {industry} Market Analysis
             
-            # Search filter
-            search_term = st.text_input("Search Sources", "")
+            This comprehensive analysis of the {industry} market reveals significant 
+            opportunities for growth and investment. The market is characterized by 
+            {len(results['competition']['key_players'])} key players and shows a 
+            healthy CAGR of {results['market_overview']['cagr']['value']}%.
             
-            filtered_sources = [
-                source for source in results.get("sources_processed", [])
-                if source["type"] in selected_types and
-                (not search_term or search_term.lower() in str(source).lower())
+            ### Key Highlights
+            - Market Size: ${results['market_overview']['market_size']['value']}B
+            - Growth Trajectory: Positive
+            - Market Maturity: Growing
+            - Investment Climate: Favorable
+            """
+            
+            return summary
+
+        def _generate_key_findings(self):
+            """Generate key findings from the research results"""
+            return [
+                "Finding 1: Market leadership is concentrated among top 5 players",
+                "Finding 2: Emerging technologies are driving market evolution",
+                "Finding 3: Regional expansion opportunities in APAC",
+                "Finding 4: Regulatory changes creating new opportunities"
             ]
-            
-            for source in filtered_sources:
-                with st.expander(f"{source['type'].upper()}: {source.get('name', source.get('path', 'Unknown'))}"):
-                    # Source metadata
-                    st.markdown("#### Metadata")
-                    meta_cols = st.columns(3)
-                    with meta_cols[0]:
-                        st.write("Type:", source["type"])
-                    with meta_cols[1]:
-                        st.write("Size:", self._format_size(source.get("size", 0)))
-                    with meta_cols[2]:
-                        st.write("Last Modified:", source.get("last_modified", "Unknown"))
-                    
-                    # Source content with syntax highlighting
-                    st.markdown("#### Content")
-                    st.code(json.dumps(source["data"], indent=2), language="json")
-            
-            if results.get("errors"):
-                with st.expander("Processing Errors", expanded=False):
-                    for error in results["errors"]:
-                        st.error(error)
 
-        def _display_analysis(self):
-            """Display analytical insights with interactive tables"""
+        def _export_research_report(self, format):
+            """Export research report in various formats"""
             results = st.session_state.results
             
-            if "structured_data" in results:
-                data = results["structured_data"]
-                
-                for section in ["companies", "technologies", "trends"]:
-                    if section in data:
-                        st.subheader(section.title())
-                        df = pd.DataFrame(data[section])
-                        
-                        # Add search and filter capabilities
-                        col1, col2 = st.columns([2, 1])
-                        with col1:
-                            search = st.text_input(f"Search {section}", key=f"search_{section}")
-                        with col2:
-                            sort_by = st.selectbox(
-                                "Sort by",
-                                df.columns.tolist(),
-                                key=f"sort_{section}"
-                            )
-                        
-                        # Filter and sort the dataframe
-                        if search:
-                            mask = df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)
-                            df = df[mask]
-                        
-                        df = df.sort_values(by=sort_by, ascending=False)
-                        
-                        # Display interactive table
-                        st.dataframe(
-                            df,
-                            use_container_width=True,
-                            hide_index=True
-                        )
-                        
-                        # Download button for each section
-                        csv = df.to_csv(index=False)
-                        st.download_button(
-                            f"Download {section.title()} Data",
-                            csv,
-                            f"{section}_data.csv",
-                            "text/csv",
-                            key=f'download_{section}'
-                        )
+            if format == "PDF Report":
+                self._export_pdf_report(results)
+            elif format == "Excel Dashboard":
+                self._export_excel_dashboard(results)
+            elif format == "PowerPoint":
+                self._export_powerpoint(results)
+            elif format == "Interactive HTML":
+                self._export_interactive_html(results)
 
-        def _display_visualizations(self):
-            """Display interactive visualizations of the data"""
-            results = st.session_state.results
-            
-            if "structured_data" not in results:
-                st.info("No data available for visualization")
-                return
-            
-            data = results["structured_data"]
-            
-            # Select visualization type
-            viz_type = st.selectbox(
-                "Select Visualization",
-                ["Trend Analysis", "Technology Distribution", "Company Analysis"]
-            )
-            
-            if viz_type == "Trend Analysis":
-                self._plot_trend_analysis(data)
-            elif viz_type == "Technology Distribution":
-                self._plot_technology_distribution(data)
-            elif viz_type == "Company Analysis":
-                self._plot_company_analysis(data)
-
-        def _plot_trend_analysis(self, data):
-            """Plot trend analysis visualization"""
-            if "trends" not in data:
-                st.info("No trend data available")
-                return
-            
-            df = pd.DataFrame(data["trends"])
-            
-            # Time series plot
-            fig = go.Figure()
-            
-            for column in df.select_dtypes(include=[np.number]).columns:
-                fig.add_trace(
-                    go.Scatter(
-                        x=df.index,
-                        y=df[column],
-                        name=column,
-                        mode='lines+markers'
-                    )
-                )
-                
-            fig.update_layout(
-                title="Trend Analysis Over Time",
-                xaxis_title="Time Period",
-                yaxis_title="Value",
-                hovermode='x unified'
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-
-        def _plot_technology_distribution(self, data):
-            """Plot technology distribution visualization"""
-            if "technologies" not in data:
-                st.info("No technology data available")
-                return
-            
-            df = pd.DataFrame(data["technologies"])
-            
-            # Create a treemap
-            fig = px.treemap(
-                df,
-                path=['category', 'name'],
-                values='mentions',
-                title="Technology Distribution"
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-
-        def _plot_company_analysis(self, data):
-            """Plot company analysis visualization"""
-            if "companies" not in data:
-                st.info("No company data available")
-                return
-            
-            df = pd.DataFrame(data["companies"])
-            
-            # Create a scatter plot
-            fig = px.scatter(
-                df,
-                x='market_cap',
-                y='revenue',
-                size='employees',
-                color='industry',
-                hover_name='name',
-                title="Company Analysis"
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-
-        def _export_data(self, format):
-            """Export data in various formats"""
-            results = st.session_state.results
-            
-            if format == "CSV":
-                for section, data in results.get("structured_data", {}).items():
-                    df = pd.DataFrame(data)
-                    csv = df.to_csv(index=False)
-                    st.download_button(
-                        f"Download {section.title()}",
-                        csv,
-                        f"{section}_data.csv",
-                        "text/csv"
-                    )
-            elif format == "Excel":
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer) as writer:
-                    for section, data in results.get("structured_data", {}).items():
-                        df = pd.DataFrame(data)
-                        df.to_excel(writer, sheet_name=section, index=False)
-                
-                st.download_button(
-                    "Download Excel Report",
-                    buffer.getvalue(),
-                    "report.xlsx",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            elif format == "JSON":
-                json_str = json.dumps(results, indent=2)
-                st.download_button(
-                    "Download JSON",
-                    json_str,
-                    "results.json",
-                    "application/json"
-                )
-            elif format == "PDF":
-                # Generate PDF report
-                pdf_buffer = self._generate_pdf_report(results)
-                st.download_button(
-                    "Download PDF Report",
-                    pdf_buffer.getvalue(),
-                    "report.pdf",
-                    "application/pdf"
-                )
-            elif format == "Markdown":
-                markdown = self._generate_markdown_report(results)
-                st.download_button(
-                    "Download Markdown Report",
-                    markdown,
-                    "report.md",
-                    "text/markdown"
-                )
-
-        def _generate_pdf_report(self, results):
-            """Generate a PDF report"""
+        def _export_pdf_report(self, results):
+            """Generate and export PDF report"""
             buffer = io.BytesIO()
-            # Add PDF generation logic here
+            # Implement PDF generation logic
             return buffer
 
-        def _generate_markdown_report(self, results):
-            """Generate a markdown report"""
-            markdown = f"# Analysis Report\n\n"
-            markdown += f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        def _export_excel_dashboard(self, results):
+            """Generate and export Excel dashboard"""
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer) as writer:
+                # Create overview sheet
+                overview_df = pd.DataFrame({
+                    "Metric": ["Market Size", "CAGR", "Players"],
+                    "Value": [
+                        results['market_overview']['market_size']['value'],
+                        results['market_overview']['cagr']['value'],
+                        len(results['competition']['key_players'])
+                    ]
+                })
+                overview_df.to_excel(writer, sheet_name="Overview", index=False)
+                
+                # Create other sheets
+                for section in ["Market", "Financials", "Competition", "Trends"]:
+                    if section.lower() in results:
+                        df = pd.DataFrame(results[section.lower()])
+                        df.to_excel(writer, sheet_name=section, index=False)
             
-            # Add sections
-            for section, data in results.get("structured_data", {}).items():
-                markdown += f"## {section.title()}\n\n"
-                df = pd.DataFrame(data)
-                markdown += df.to_markdown(index=False)
-                markdown += "\n\n"
+            return buffer
+
+        def _export_powerpoint(self, results):
+            """Generate and export PowerPoint presentation"""
+            buffer = io.BytesIO()
+            # Implement PowerPoint generation logic
+            return buffer
+
+        def _export_interactive_html(self, results):
+            """Generate and export interactive HTML report"""
+            html_content = f"""
+            <html>
+                <head>
+                    <title>{results['metadata']['industry']} Market Analysis</title>
+                    <!-- Add required CSS and JS -->
+                </head>
+                <body>
+                    <!-- Add interactive content -->
+                </body>
+            </html>
+            """
+            return html_content.encode()
+
+        def _display_market_analysis(self):
+            """Display market analysis section"""
+            results = st.session_state.results
             
-            return markdown
-
-        def _calculate_success_rate(self, results):
-            """Calculate the success rate of source processing"""
-            total = len(results.get("sources_processed", [])) + len(results.get("errors", []))
-            if total == 0:
-                return 100
-            return round((len(results.get("sources_processed", [])) / total) * 100, 1)
-
-        def _format_size(self, size_bytes):
-            """Format file size in human readable format"""
-            for unit in ['B', 'KB', 'MB', 'GB']:
-                if size_bytes < 1024:
-                    return f"{size_bytes:.1f} {unit}"
-                size_bytes /= 1024
-            return f"{size_bytes:.1f} TB"
-
-        def _display_filtered_insights(self, insights):
-            """Display filtered insights with expandable sections"""
-            for category, items in insights.items():
-                with st.expander(category.title()):
-                    if isinstance(items, dict):
-                        for key, value in items.items():
-                            st.write(f"**{key}:** {value}")
-                    elif isinstance(items, list):
-                        for item in items:
-                            st.write(f"- {item}")
-                    else:
-                        st.write(items)
-
-        def process_input(self, combined_input):
-            """Process both GUI and CLI inputs with custom sources"""
-            try:
-                # Initialize results container
-                results = {
-                    "structured_data": {},
-                    "sources_processed": [],
-                    "errors": []
-                }
+            if "market_overview" in results:
+                st.subheader("Market Overview")
+                st.markdown(f"### Market Size: ${results['market_overview']['market_size']['value']}B")
+                st.markdown(f"### CAGR: {results['market_overview']['cagr']['value']}%")
                 
-                # Process custom sources first
-                for source in combined_input["sources"]:
-                    try:
-                        if source["type"] == "website":
-                            result = self.parent.web_scraper.scrape(source["path"])
-                            results["sources_processed"].append({
-                                "type": "website",
-                                "path": source["path"],
-                                "data": result
-                            })
-                    except Exception as e:
-                        results["errors"].append(f"Error processing {source['path']}: {str(e)}")
-                
-                # Process uploaded files
-                for file in combined_input["files"]:
-                    try:
-                        result = self.process_file(file)
-                        results["sources_processed"].append({
-                            "type": file["type"],
-                            "name": file["name"],
-                            "data": result
-                        })
-                    except Exception as e:
-                        results["errors"].append(f"Error processing {file['name']}: {str(e)}")
-                
-                # Process natural language prompt
-                if combined_input["prompt"]:
-                    results["prompt_analysis"] = self.parent.nlp.analyze_prompt(
-                        combined_input["prompt"])
-                
-                # Process CLI commands
-                if combined_input["cli"]:
-                    results["cli_output"] = self.parent.task.execute_commands(
-                        combined_input["cli"])
-                
-                # Store results in session state
-                st.session_state.results = results
-                
-            except Exception as e:
-                st.error(f"Processing error: {str(e)}")
+                # Market segmentation
+                if "segments" in results['market_overview']:
+                    st.subheader("Market Segmentation")
+                    for segment in results['market_overview']['segments']:
+                        st.markdown(f"- **{segment['name']}**: {segment['description']}")
 
-        def process_file(self, file):
-            """Process uploaded files based on type"""
-            if file["type"] == "pdf":
-                return self._process_pdf(file)
-            elif file["type"] == "text":
-                return self._process_text(file)
-            elif file["type"] == "markdown":
-                return self._process_markdown(file)
-            else:
-                raise ValueError(f"Unsupported file type: {file['type']}")
+        def _display_financial_analysis(self):
+            """Display financial analysis section"""
+            results = st.session_state.results
+            
+            if "financials" in results:
+                st.subheader("Financial Analysis")
+                st.markdown(f"### Revenue: ${results['financials']['revenue']['value']}M")
+                st.markdown(f"### Net Income: ${results['financials']['net_income']['value']}M")
+                
+                # Financial ratios
+                if "financial_ratios" in results['financials']:
+                    st.subheader("Financial Ratios")
+                    for ratio in results['financials']['financial_ratios']:
+                        st.markdown(f"- **{ratio['name']}**: {ratio['value']}")
 
-        def _process_pdf(self, file):
-            """Extract and process PDF content"""
-            # Add PDF processing logic here
-            return {"content": "PDF processing not implemented yet"}
+        def _display_competitive_landscape(self):
+            """Display competitive landscape section"""
+            results = st.session_state.results
+            
+            if "competition" in results:
+                st.subheader("Competitive Landscape")
+                st.markdown(f"### Key Players: {len(results['competition']['key_players'])}")
+                
+                # Company profiles
+                for company in results['competition']['key_players']:
+                    st.subheader(company['name'])
+                    st.markdown(f"### Description: {company['description']}")
+                    st.markdown(f"### Market Share: {company['market_share']}%")
 
-        def _process_text(self, file):
-            """Process plain text content"""
-            content = file["content"].decode("utf-8")
-            return {"content": content}
+        def _display_investment_opportunities(self):
+            """Display investment opportunities section"""
+            results = st.session_state.results
+            
+            if "investment" in results:
+                st.subheader("Investment Opportunities")
+                st.markdown(f"### Opportunities: {len(results['investment']['opportunities'])}")
+                
+                # Opportunity profiles
+                for opportunity in results['investment']['opportunities']:
+                    st.subheader(opportunity['name'])
+                    st.markdown(f"### Description: {opportunity['description']}")
+                    st.markdown(f"### Potential Return: {opportunity['potential_return']}%")
 
-        def _process_markdown(self, file):
-            """Process markdown content"""
-            content = file["content"].decode("utf-8")
-            return {"content": content}
+        def _display_trends(self):
+            """Display trends section"""
+            results = st.session_state.results
+            
+            if "trends" in results:
+                st.subheader("Trends")
+                st.markdown(f"### Emerging Trends: {len(results['trends']['emerging_trends'])}")
+                
+                # Trend profiles
+                for trend in results['trends']['emerging_trends']:
+                    st.subheader(trend['name'])
+                    st.markdown(f"### Description: {trend['description']}")
+                    st.markdown(f"### Impact: {trend['impact']}")
+
+        def _display_quick_stats(self, industry):
+            """Display quick statistics about the industry"""
+            st.metric("Market Size", "$XXB", delta="↑ 12.5%")
+            st.metric("Key Players", "125+", delta="↑ 15")
+            st.metric("CAGR", "8.5%", delta="↑ 2.1%")
+            
+            with st.expander("Top Companies"):
+                st.write("1. Company A")
+                st.write("2. Company B")
+                st.write("3. Company C")
+
+        def _generate_comprehensive_report(self, industry, params):
+            """Generate a comprehensive report based on template and parameters"""
+            st.session_state.results = {
+                "metadata": {
+                    "industry": industry,
+                    "generated_at": datetime.now().isoformat(),
+                    "parameters": params
+                },
+                "market_overview": self._analyze_market(industry, params),
+                "financials": self._analyze_financials(industry, params),
+                "competition": self._analyze_competition(industry, params),
+                "investment": self._analyze_investment(industry, params),
+                "trends": self._analyze_trends(industry, params)
+            }
+            
+            # Display results in organized sections
+            self.display_results()
+
+        def _analyze_market(self, industry, params):
+            """Analyze market overview section"""
+            # Implement market analysis logic
+            return {
+                "market_size": {"value": 0, "unit": "USD", "year": 2025},
+                "cagr": {"value": 0, "period": "2025-2030"},
+                "segments": [],
+                "regions": {}
+            }
+
+        def _analyze_financials(self, industry, params):
+            """Analyze financials section"""
+            # Implement financial analysis logic
+            return {
+                "key_metrics": {},
+                "valuations": [],
+                "financial_ratios": {}
+            }
+
+        def _analyze_competition(self, industry, params):
+            """Analyze competitive landscape"""
+            # Implement competition analysis logic
+            return {
+                "key_players": [],
+                "market_share": {},
+                "competitive_advantages": {}
+            }
+
+        def _analyze_investment(self, industry, params):
+            """Analyze investment opportunities"""
+            # Implement investment analysis logic
+            return {
+                "opportunities": [],
+                "risks": [],
+                "recommendations": []
+            }
+
+        def _analyze_trends(self, industry, params):
+            """Analyze industry trends"""
+            # Implement trend analysis logic
+            return {
+                "emerging_trends": [],
+                "technology_impact": {},
+                "future_outlook": {}
+            }
 
     def _groq_call(self, model: str, prompt: str) -> Any:
         return self.groq.chat.completions.create(
@@ -1024,29 +1108,20 @@ class LLMAgentOrchestrator:
             
             # Report Parameters
             st.subheader("Report Parameters")
-            report_params = {
-                "time_horizon": st.slider("Time Horizon (Years)", 1, 10, 5),
-                "depth": st.select_slider("Analysis Depth", 
-                    options=["Basic", "Standard", "Comprehensive"], 
-                    value="Standard"),
-                "regions": st.multiselect("Target Regions", 
-                    ["North America", "Europe", "Asia-Pacific", "Latin America", "Middle East & Africa"],
-                    default=["North America", "Europe", "Asia-Pacific"]),
-                "focus_areas": st.multiselect("Focus Areas",
-                    ["Market Overview", "Financials", "Competition", "Investment Opportunities", "Trends"],
-                    default=["Market Overview", "Competition"])
-            }
-        
+            report_params = self.streamlit._configure_report_params()
+
         # Main content area
         col1, col2 = st.columns([2, 1])
         
         with col1:
             st.header("Research Query")
-            if industry:
+            if industry and selected_template:
                 # Generate research brief from template
-                template = self.streamlit.template_cache.get(selected_template, "")
-                brief = template.replace("[industry/market of interest]", industry)
-                brief = brief.replace("[Title of Brief]", f"{industry} Market Analysis")
+                brief = self.streamlit.template_cache.get(selected_template, "").replace(
+                    "[industry/market of interest]", industry
+                ).replace(
+                    "[Title of Brief]", f"{industry} Market Analysis"
+                )
                 
                 # Display formatted brief
                 st.markdown(brief)
@@ -1054,273 +1129,30 @@ class LLMAgentOrchestrator:
                 # Process button
                 if st.button("Generate Report"):
                     self.streamlit._generate_comprehensive_report(industry, report_params)
-        
-        with col2:
+
             st.header("Quick Stats")
-            if industry:
-                self.streamlit._display_quick_stats(industry)
-
-    def _generate_comprehensive_report(self, industry, params):
-        """Generate a comprehensive report based on template and parameters"""
-        st.session_state.results = {
-            "metadata": {
-                "industry": industry,
-                "generated_at": datetime.now().isoformat(),
-                "parameters": params
-            },
-            "market_overview": self._analyze_market(industry, params),
-            "financials": self._analyze_financials(industry, params),
-            "competition": self._analyze_competition(industry, params),
-            "investment": self._analyze_investment(industry, params),
-            "trends": self._analyze_trends(industry, params)
-        }
+            self.streamlit._display_quick_stats(industry)
         
-        # Display results in organized sections
-        self.streamlit.display_results()
-
-    def _analyze_market(self, industry, params):
-        """Analyze market overview section"""
-        # Implement market analysis logic
-        return {
-            "market_size": {"value": 0, "unit": "USD", "year": 2025},
-            "cagr": {"value": 0, "period": "2025-2030"},
-            "segments": [],
-            "regions": {}
-        }
-
-    def _analyze_financials(self, industry, params):
-        """Analyze financials section"""
-        # Implement financial analysis logic
-        return {
-            "key_metrics": {},
-            "valuations": [],
-            "financial_ratios": {}
-        }
-
-    def _analyze_competition(self, industry, params):
-        """Analyze competitive landscape"""
-        # Implement competition analysis logic
-        return {
-            "key_players": [],
-            "market_share": {},
-            "competitive_advantages": {}
-        }
-
-    def _analyze_investment(self, industry, params):
-        """Analyze investment opportunities"""
-        # Implement investment analysis logic
-        return {
-            "opportunities": [],
-            "risks": [],
-            "recommendations": []
-        }
-
-    def _analyze_trends(self, industry, params):
-        """Analyze industry trends"""
-        # Implement trend analysis logic
-        return {
-            "emerging_trends": [],
-            "technology_impact": {},
-            "future_outlook": {}
-        }
-
-    def _display_quick_stats(self, industry):
-        """Display quick statistics about the industry"""
-        st.metric("Market Size", "$XXB", delta="↑ 12.5%")
-        st.metric("Key Players", "125+", delta="↑ 15")
-        st.metric("CAGR", "8.5%", delta="↑ 2.1%")
-        
-        with st.expander("Top Companies"):
-            st.write("1. Company A")
-            st.write("2. Company B")
-            st.write("3. Company C")
-
-    def display_results(self):
-        """Enhanced display of research results"""
-        if not st.session_state.results:
-            return
-
-        # Report style selector with research brief specific styles
-        report_styles = [
-            "Executive Summary",
-            "Investor Presentation",
-            "Technical Deep Dive",
-            "Market Entry Analysis",
-            "Competitive Intelligence"
-        ]
-        selected_style = st.selectbox("Report Style", report_styles)
-        
-        # Export options
-        export_formats = ["PDF Report", "Excel Dashboard", "PowerPoint", "Interactive HTML"]
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.header("Research Results")
         with col2:
-            export_format = st.selectbox("Export Format", export_formats)
-            if st.button("Export Report"):
-                self.streamlit._export_research_report(export_format)
-
-        # Create tabs for different sections
-        tabs = st.tabs([
-            "Executive Overview",
-            "Market Analysis",
-            "Financial Analysis",
-            "Competitive Landscape",
-            "Investment Opportunities",
-            "Trends & Innovation"
-        ])
-        
-        with tabs[0]:
-            self.streamlit._display_executive_overview()
-        with tabs[1]:
-            self.streamlit._display_market_analysis()
-        with tabs[2]:
-            self.streamlit._display_financial_analysis()
-        with tabs[3]:
-            self.streamlit._display_competitive_landscape()
-        with tabs[4]:
-            self.streamlit._display_investment_opportunities()
-        with tabs[5]:
-            self.streamlit._display_trends()
-
-    def _display_executive_overview(self):
-        """Display executive overview of research results"""
-        results = st.session_state.results
-        
-        # Key metrics dashboard
-        st.subheader("Key Metrics")
-        cols = st.columns(4)
-        with cols[0]:
-            st.metric(
-                "Market Size",
-                f"${results['market_overview']['market_size']['value']}B",
-                delta="↑ 12.5%"
-            )
-        with cols[1]:
-            st.metric(
-                "CAGR",
-                f"{results['market_overview']['cagr']['value']}%",
-                delta="↑ 2.1%"
-            )
-        with cols[2]:
-            st.metric(
-                "Companies Analyzed",
-                len(results['competition']['key_players']),
-                delta="↑ 15"
-            )
-        with cols[3]:
-            st.metric(
-                "Investment Score",
-                "8.5/10",
-                delta="↑ 0.5"
-            )
-        
-        # Executive summary
-        st.subheader("Executive Summary")
-        st.markdown(self.streamlit._generate_executive_summary())
-        
-        # Key findings
-        st.subheader("Key Findings")
-        for finding in self.streamlit._generate_key_findings():
-            st.info(finding)
-
-    def _generate_executive_summary(self):
-        """Generate an executive summary from the research results"""
-        results = st.session_state.results
-        industry = results['metadata']['industry']
-        
-        summary = f"""
-        ## {industry} Market Analysis
-        
-        This comprehensive analysis of the {industry} market reveals significant 
-        opportunities for growth and investment. The market is characterized by 
-        {len(results['competition']['key_players'])} key players and shows a 
-        healthy CAGR of {results['market_overview']['cagr']['value']}%.
-        
-        ### Key Highlights
-        - Market Size: ${results['market_overview']['market_size']['value']}B
-        - Growth Trajectory: Positive
-        - Market Maturity: Growing
-        - Investment Climate: Favorable
-        """
-        
-        return summary
-
-    def _generate_key_findings(self):
-        """Generate key findings from the research results"""
-        return [
-            "Finding 1: Market leadership is concentrated among top 5 players",
-            "Finding 2: Emerging technologies are driving market evolution",
-            "Finding 3: Regional expansion opportunities in APAC",
-            "Finding 4: Regulatory changes creating new opportunities"
-        ]
-
-    def _export_research_report(self, format):
-        """Export research report in various formats"""
-        results = st.session_state.results
-        
-        if format == "PDF Report":
-            self.streamlit._export_pdf_report(results)
-        elif format == "Excel Dashboard":
-            self.streamlit._export_excel_dashboard(results)
-        elif format == "PowerPoint":
-            self.streamlit._export_powerpoint(results)
-        elif format == "Interactive HTML":
-            self.streamlit._export_interactive_html(results)
-
-    def _export_pdf_report(self, results):
-        """Generate and export PDF report"""
-        buffer = io.BytesIO()
-        # Implement PDF generation logic
-        return buffer
-
-    def _export_excel_dashboard(self, results):
-        """Generate and export Excel dashboard"""
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer) as writer:
-            # Create overview sheet
-            overview_df = pd.DataFrame({
-                "Metric": ["Market Size", "CAGR", "Players"],
-                "Value": [
-                    results['market_overview']['market_size']['value'],
-                    results['market_overview']['cagr']['value'],
-                    len(results['competition']['key_players'])
-                ]
-            })
-            overview_df.to_excel(writer, sheet_name="Overview", index=False)
+            st.header("CLI Mode")
+            cli_input = st.text_area("Enter CLI commands", height=100)
             
-            # Create other sheets
-            for section in ["Market", "Financials", "Competition", "Trends"]:
-                if section.lower() in results:
-                    df = pd.DataFrame(results[section.lower()])
-                    df.to_excel(writer, sheet_name=section, index=False)
-        
-        return buffer
+            # Process Button
+            if st.button("Process"):
+                combined_input = {
+                    "prompt": None,
+                    "cli": cli_input,
+                    "sources": [],
+                    "files": []
+                }
+                self.streamlit.process_input(combined_input)
 
-    def _export_powerpoint(self, results):
-        """Generate and export PowerPoint presentation"""
-        buffer = io.BytesIO()
-        # Implement PowerPoint generation logic
-        return buffer
-
-    def _export_interactive_html(self, results):
-        """Generate and export interactive HTML report"""
-        html_content = f"""
-        <html>
-            <head>
-                <title>{results['metadata']['industry']} Market Analysis</title>
-                <!-- Add required CSS and JS -->
-            </head>
-            <body>
-                <!-- Add interactive content -->
-            </body>
-        </html>
-        """
-        return html_content.encode()
+            # Display results
+            self.streamlit.display_results()
 
 if __name__ == "__main__":
     agent = LLMAgentOrchestrator(
         groq_api_key=os.getenv("GROQ_API_KEY"),
         google_api_key=os.getenv("GOOGLE_API_KEY")
     )
-    agent.streamlit.setup_ui()
+    agent.streamlit.run()
