@@ -56,6 +56,43 @@ Both inputs will consider your added sources:
 - Cross-reference between sources
 - Highlight matching content
 
+### 1. Research & Reporting
+- Comprehensive market research framework
+- Multi-format report generation
+- Advanced visualization capabilities
+- Export to PDF, Excel, PowerPoint, HTML
+
+### 2. Template Management
+- Create and manage research templates
+- Multiple template types:
+  * Research Brief
+  * Market Analysis
+  * Competitor Analysis
+  * Investment Thesis
+  * Custom Templates
+- Template features:
+  * Rich text editor
+  * YAML frontmatter for metadata
+  * Version control
+  * Template duplication
+  * Preview before use
+- Output formats:
+  * Markdown
+  * Structured JSON
+  * Professional Reports
+  * Interactive Dashboards
+
+### 3. Streamlit Interface
+- Intuitive navigation with tabs:
+  * Research
+  * Templates
+  * Results
+  * Settings
+- Sidebar configuration
+- Dynamic template selection
+- Interactive data exploration
+- Advanced filtering and sorting
+
 ## 📊 Output Format
 
 The app provides structured output combining all sources:
@@ -146,6 +183,36 @@ This project builds upon and integrates several powerful technologies and librar
 - Groq team
 - Streamlit community
 - Open-source contributors
+
+## Usage
+
+### Template Management
+1. Navigate to the "Templates" tab
+2. Create new templates:
+   - Click "Add New Template"
+   - Enter template name and content
+   - Select template type and output format
+   - Add custom metadata
+3. Edit existing templates:
+   - Select template from list
+   - Use rich text editor
+   - Preview changes
+   - Save or cancel modifications
+4. Template operations:
+   - Duplicate templates for variations
+   - Delete templates with confirmation
+   - Export templates in various formats
+
+### Research Workflow
+1. Select a template from the Research tab
+2. Enter target market/industry
+3. Configure analysis parameters:
+   - Time horizon
+   - Analysis depth
+   - Target regions
+   - Focus areas
+4. Generate comprehensive report
+5. Export in desired format
 
 ## Research & Reporting Features
 
