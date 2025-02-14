@@ -1,9 +1,48 @@
-streamlit==1.32.0
-google-generativeai==0.3.2
-groq==0.1.0
-crawl4ai==0.1.0
-pydantic==2.5.3
-plotly==5.18.0
-pandas==2.1.4
-streamlit-tags==1.2.0
-python-dotenv==1.0.0
+# Core Dependencies
+streamlit>=1.27.0
+streamlit-tags>=1.2.8
+groq>=0.3.0
+google-generativeai>=1.0.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+pydantic>=1.8.2
+openpyxl>=3.1.2
+tabulate>=0.9.0
+
+# Web Scraping
+aiohttp>=3.9.0
+beautifulsoup4>=4.12.0
+html2text>=2020.1.16
+requests>=2.31.0
+
+# Web Search
+googlesearch-python>=1.2.3
+
+# Visualization
+plotly>=5.18.0
+
+# Storage and Caching
+diskcache>=5.6.3
+
+# Utilities
+python-dotenv>=1.0.0
+validators>=0.22.0
+tenacity>=8.2.0
+pillow>=10.0.0
+
+# Browser Automation
+selenium>=4.0.0
+webdriver-manager>=3.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+
+# Template and Report Generation
+python-pptx>=0.6.21
+reportlab>=4.0.4
+jinja2>=3.1.2
+markdown>=3.4.3
+weasyprint>=60.1
