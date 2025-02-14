@@ -1,180 +1,369 @@
-##FIXING##
+# AI Web Scraper Pro v2.3
 
-# AI Web Scraper Pro v2.1 🕷️⚡
+An intelligent web scraping solution with multi-LLM orchestration, available as a public Streamlit app.
 
-**Next-Generation Intelligent Web Scraping with Multi-LLM Orchestration**
+## 🔑 Getting Started
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-streamlit-app-url)  [![Version](https://img.shields.io/badge/version-2.1-blue)](https://github.com/yourrepo/ai-web-scraper)  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
+1. **API Keys Required**
+   - In the left sidebar menu, locate the "API Keys" section
+   - Enter your Groq API key (get it from [groq.com](https://groq.com))
+   - Enter your Google API key (get it from [console.cloud.google.com](https://console.cloud.google.com))
+   - Keys are stored temporarily in your session only
 
-<img src="https://crawl4ai.com/assets/demo.gif" width="800" alt="Scraping Demo">  
+2. **Custom Sources Integration**
+   In the sidebar, you can add multiple types of sources:
+   - 🌐 Websites (enter URLs)
+   - 📄 PDF files (upload)
+   - 📝 Text files (upload)
+   - 📋 Markdown files (upload)
 
----
+## 💻 Dual Input Interface
 
-## What's New in v2.1 🚀  
+The app features a dual-input interface that allows you to use both GUI and CLI simultaneously:
 
-### Revolutionary Enhancements  
-- **Multi-LLM Orchestration**:  
-  - Groq integration (Llama3-70B, Mixtral 8x7B) + Gemini Flash hybrid processing  
-  - Model routing based on content type and complexity  
-  - Collaborative agent architecture for complex tasks  
+### Natural Language Query (Left Panel)
+- Enter free-form research queries
+- Example: "Find AI startups in healthcare with recent funding"
+- The app will intelligently process your query and search across all sources
 
-- **Advanced Web Extraction**:  
-  - Hybrid AI/rule-based content parsing with crawl4ai  
-  - Dynamic pagination handling with pattern recognition  
-  - Rotating user agents + headless browser strategies  
+### CLI Commands (Right Panel)
+- Enter specific commands for targeted searches
+- Example: `search --domain healthcare --type startup --timeframe 2024`
+- Supports advanced filtering and data extraction
 
-- **Enterprise Features**:  
-  - Disk-based caching with TTL controls  
-  - Configurable retry policies (3 attempts with backoff)  
-  - Screenshot capture for visual verification  
+### Custom Source Integration
+Both inputs will consider your added sources:
+- Websites are scraped for relevant information
+- PDFs are parsed and analyzed
+- Text and Markdown files are included in the search scope
 
-- **Streamlit UI 2.0**:  
-  - Real-time scraping dashboard  
-  - Interactive field extraction configuration  
-  - Multi-format export (JSON/CSV/Excel)  
+## 🎯 Features
 
----
+### Intelligent Processing
+- Simultaneous processing of GUI and CLI inputs
+- Cross-reference between custom sources and web results
+- Smart content extraction from multiple file types
 
-## Core Architecture 🧩  
+### Source Management
+- Add/remove sources dynamically
+- Mix different source types
+- Preview added sources in sidebar
+- Clear all sources with one click
 
-### Model-Agent Matrix  
-| Agent         | Primary Model              | Key Capabilities                          |  
-|---------------|----------------------------|------------------------------------------|  
-| Search        | Gemini Flash               | Google Search API integration + citation mgmt |  
-| Data          | Mixtral 8x7B               | Hybrid AI/rule-based extraction          |  
-| NLP           | Llama3-70B                 | Semantic analysis & summarization        |  
-| Domain        | Mixtral 8x7B               | Financial pattern recognition            |  
-| Code          | Gemini Flash               | API generation & code refactoring        |  
-| Evaluation    | Llama Guard 3-8B           | Content safety & quality checks          |  
+### Data Integration
+- Combines results from all sources
+- Structured output format
+- Cross-reference between sources
+- Highlight matching content
 
----
+## 📊 Output Format
 
-## Installation & Setup ⚙️  
+The app provides structured output combining all sources:
 
-```bash  
-pip install llm-search-tools crawl4ai streamlit  
-export GROQ_API_KEY="your-groq-key"  
-export GOOGLE_API_KEY="your-google-key"  
-```
-
----
-
-## Key Features 🛠️  
-
-### 1. Intelligent Web Scraping  
-```python  
-from crawl4ai import AsyncWebCrawler  
-from llm_search_tools import LLMAgentOrchestrator  
-
-agent = LLMAgentOrchestrator()  
-crawler = AsyncWebCrawler(
-  strategy="cosmic",
-  scroll_count=3,
-  cache=DiskCache(ttl=3600)
-)
-
-# Hybrid extraction example  
-results = crawler.crawl("https://example.com")  
-cleaned_data = agent.data_agent.clean_data(
-  results.raw_html,
-  fields=["price", "specs", "reviews"]
-)
-```
-
-### 2. Streamlit UI Integration  
-```python  
-def run_scraper():
-    agent.streamlit.setup_ui()
-    agent.streamlit.run_scraper()
-
-# Features:
-# - Real-time progress tracking
-# - Error log visualization
-# - Interactive result exploration
-# - One-click data export
-```
-
-### 3. Multi-Model Processing  
-```python  
-# Automatic model routing  
-def process_content(content):
-    if len(content) > 32000:
-        return agent.data_agent.clean_data(content)
-    return agent.nlp_agent.summarize(content)
-
-# Multi-LLM collaboration  
-financial_analysis = agent.domain_agent.analyze_finance(
-    cleaned_data,
-    models=["Mixtral 8x7B", "Gemini Flash"]
-)
-```
-
----
-
-## Advanced Configuration ⚡  
-
-### Crawling Strategies  
-```python  
-STRATEGIES = {
-    "cosmic": "Full JS rendering with detection bypass",
-    "stealth": "Headless browsing with anti-detection",
-    "lightweight": "Basic HTML fetching",
-    "custom": "User-defined JS execution"
+```json
+{
+    "structured_data": {
+        "companies": [...],
+        "technologies": [...],
+        "trends": [...]
+    },
+    "sources_processed": [
+        {"type": "website", "url": "...", "data": {...}},
+        {"type": "pdf", "name": "report.pdf", "data": {...}},
+        {"type": "markdown", "name": "notes.md", "data": {...}}
+    ],
+    "analysis": {
+        "themes": [...],
+        "relationships": [...],
+        "timeline": [...]
+    }
 }
 ```
 
-### Performance Optimization  
-```python  
-TIMEOUT_SETTINGS = {
-    "page_load": 30,  # seconds
-    "script": 10,
-    "retry": 15
+## 💡 Tips for Best Results
+
+1. **Combine Inputs Effectively**
+   - Use natural language for broad queries
+   - Use CLI for specific filters
+   - Add relevant custom sources
+
+2. **Source Integration**
+   - Add sources before running queries
+   - Mix different source types
+   - Use clear file names
+
+3. **Query Optimization**
+   - Be specific in natural language queries
+   - Use proper CLI command syntax
+   - Reference source types in queries
+
+## ❓ Troubleshooting
+
+1. **Source Issues**
+   - Ensure URLs are accessible
+   - Check file formats are supported
+   - Verify file size limits
+
+2. **Processing Problems**
+   - Try simpler queries first
+   - Check source compatibility
+   - Review error messages
+
+3. **Output Issues**
+   - Reduce number of sources for faster processing
+   - Use more specific queries
+   - Check source format compatibility
+
+## 🔒 Privacy Note
+
+- API keys are stored in session only
+- Uploaded files are processed temporarily
+- No data is permanently stored
+- Clear your browser cache to remove all data
+
+## 🙏 Acknowledgments
+
+This project builds upon and integrates several powerful technologies and libraries:
+
+- **crawl4ai**: Advanced web crawling and data extraction framework providing sophisticated features like:
+  - Asynchronous web crawling
+  - LLM-powered extraction
+  - Semantic content analysis
+  - Multiple chunking strategies
+  - HTML to text conversion
+  - Caching and retry policies
+  - Browser automation
+  - SSL certificate handling
+
+- **Groq**: State-of-the-art language models
+- **Google Generative AI**: Advanced AI capabilities
+- **Streamlit**: Interactive web interface
+- **Plotly**: Data visualization
+- **Pandas**: Data manipulation and analysis
+
+### Special Thanks To
+- crawl4ai team
+- Groq team
+- Streamlit community
+- Open-source contributors
+
+## Research & Reporting Features
+
+### Custom Research Templates
+The application supports custom research templates located in the `/Prompts` directory. These templates define the structure and scope of market research reports.
+
+#### Example Template Structure
+```markdown
+PROMPT: Write a comprehensive report about the [industry/market of interest] and identify key players in different regions.
+
+Research Brief: [Title of Brief]
+
+### Objective
+Compile a comprehensive, data-driven report on the state of [industry/market of interest]...
+
+### Methodology
+- Data collection methods
+- Source validation
+- Analysis techniques
+
+### Scope
+1. Market Overview
+2. Financial Analysis
+3. Competitive Landscape
+4. Investment Opportunities
+5. Trends & Innovation
+```
+
+### Report Generation
+
+#### 1. Configure Research Parameters
+```python
+report_params = {
+    "time_horizon": 5,  # Years
+    "depth": "Comprehensive",  # Basic, Standard, Comprehensive
+    "regions": ["North America", "Europe", "Asia-Pacific"],
+    "focus_areas": ["Market Overview", "Competition"]
 }
-
-RETRY_POLICY = RetryPolicy(
-    attempts=3,
-    delay=10,
-    exponential_backoff=True
-)
 ```
 
----
+#### 2. Example Report Output
+```markdown
+# AI Software Market Analysis
+Generated: 2025-02-14
 
-## Deployment 🚀  
+## Executive Summary
+Market Size: $125B (2025)
+CAGR: 28.5% (2025-2030)
+Key Players: 150+
+Investment Score: 8.5/10
 
-```dockerfile  
-FROM python:3.10-slim  
-RUN pip install llm-search-tools crawl4ai streamlit  
-COPY . /app  
-CMD ["streamlit", "run", "/app/scraper_pro.py"]  
+## Market Overview
+- Total Addressable Market (TAM)
+- Regional Distribution
+- Growth Drivers
+- Market Segments
+
+## Competitive Landscape
+- Market Share Analysis
+- Key Player Profiles
+- Competitive Advantages
+- Market Positioning
+
+## Investment Opportunities
+- Growth Areas
+- Risk Assessment
+- ROI Analysis
+- Entry Barriers
 ```
 
----
+### Export Options
 
-## Benchmark Results 📈  
+#### 1. PDF Report
+Professional PDF reports include:
+- Executive Summary
+- Data Visualizations
+- Detailed Analysis
+- Source Citations
 
-| Metric              | v2.0 | v2.1 | Improvement |  
-|---------------------|------|------|-------------|  
-| Pages/Minute        | 42   | 58   | +38%        |  
-| Extraction Accuracy | 89%  | 95%  | +6%         |  
-| Error Recovery      | 72%  | 91%  | +19%        |  
+#### 2. Excel Dashboard
+Interactive Excel workbook with:
+- Overview Dashboard
+- Market Data
+- Financial Metrics
+- Competitive Analysis
+- Trend Tracking
 
----
+#### 3. PowerPoint Presentation
+Investor-ready slides covering:
+- Market Highlights
+- Growth Opportunities
+- Key Players
+- Investment Thesis
 
-## Contribution & Support 🤝  
+#### 4. Interactive HTML
+Web-based report featuring:
+- Interactive Charts
+- Filterable Tables
+- Dynamic Visualizations
+- Export Capabilities
 
-**Development Guidelines**:  
-- Use `Llama3-70B` for core logic changes  
-- Apply `Gemini Flash` for UI/UX improvements  
-- Validate with `Llama Guard` for safety checks  
+### Example Usage
 
-**Resources**:  
-- [Crawl4AI Documentation](https://github.com/unclecode/crawl4ai)  
-- [Groq API Reference](https://console.groq.com/docs)  
-- [Gemini Tool Integration](https://ai.google.dev/docs)  
+1. **Select Template & Industry**
+   ```python
+   template = "Research Brief.txt"
+   industry = "AI Software"
+   ```
 
----
+2. **Configure Analysis**
+   ```python
+   params = {
+       "time_horizon": 5,
+       "depth": "Comprehensive",
+       "regions": ["North America", "Europe", "APAC"],
+       "focus_areas": ["Market", "Competition", "Investment"]
+   }
+   ```
 
-**License**: MIT  
-**Maintainer**: AI Scraping Team  
-*Powered by Groq, Gemini, and Crawl4AI technologies*
+3. **Generate Report**
+   ```python
+   report = generate_report(industry, template, params)
+   ```
+
+4. **Export Results**
+   ```python
+   # Export as PDF
+   report.export("pdf", "ai_software_analysis.pdf")
+   
+   # Export as Excel Dashboard
+   report.export("excel", "ai_software_metrics.xlsx")
+   ```
+
+### Visualization Types
+
+1. **Market Analysis**
+   - Market Size Evolution
+   - Regional Distribution
+   - Segment Breakdown
+   - Growth Trends
+
+2. **Financial Metrics**
+   - Revenue Analysis
+   - Profitability Metrics
+   - Valuation Multiples
+   - Investment Returns
+
+3. **Competitive Analysis**
+   - Market Share
+   - Competitor Positioning
+   - Strength Assessment
+   - Strategic Grouping
+
+4. **Technology Trends**
+   - Innovation Timeline
+   - Adoption Curves
+   - Tech Stack Analysis
+   - Future Roadmap
+
+### Best Practices
+
+1. **Template Design**
+   - Use clear section headers
+   - Include specific metrics
+   - Define scope clearly
+   - Add methodology details
+
+2. **Report Generation**
+   - Validate data sources
+   - Cross-reference metrics
+   - Include confidence levels
+   - Cite sources properly
+
+3. **Data Visualization**
+   - Choose appropriate charts
+   - Maintain consistency
+   - Use clear labels
+   - Include legends
+
+4. **Export Formats**
+   - Optimize for readability
+   - Include navigation aids
+   - Add executive summaries
+   - Provide source data
+
+### Customization
+
+#### 1. Adding New Templates
+Create new template files in the `/Prompts` directory:
+```
+/Prompts
+  ├── Research Brief.txt
+  ├── Competitor Analysis.txt
+  ├── Investment Thesis.txt
+  └── Technology Assessment.txt
+```
+
+#### 2. Custom Report Styles
+Available styles include:
+- Executive Summary
+- Investor Presentation
+- Technical Deep Dive
+- Market Entry Analysis
+- Competitive Intelligence
+
+#### 3. Custom Visualizations
+Add new visualization types:
+```python
+@visualization_type
+def custom_chart(data, params):
+    """Create custom visualization"""
+    # Implementation
+```
+
+#### 4. Export Templates
+Customize export formats:
+```python
+@export_format
+def custom_export(report, path):
+    """Custom export format"""
+    # Implementation
