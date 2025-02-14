@@ -29,17 +29,17 @@ Compile a comprehensive, data-driven report on the state of `[industry/market of
 ### 🔍 Scope of Research
 
 #### 1. Market Overview 📈
-- [ ] Analyze the current state of `[market of interest]` using multiple authoritative sources, including industry reports and government data
+- [ ] Analyse the current state of `[market of interest]` using multiple authoritative sources, including industry reports and government data
 - [ ] Provide a detailed breakdown of market segmentation and key drivers, including demographic and psychographic factors
 - [ ] Estimate total market size and growth trajectory over the next 3-5 years, with year-by-year projections and confidence intervals
 - [ ] Present market share predictions for key players, including historical trends and future projections based on multiple scenarios
 - [ ] Identify knowledge gaps in market understanding and potential areas for further research, prioritizing based on potential impact
 - [ ] Highlight inconsistencies in market size estimates or growth projections across different sources, explaining possible reasons
 - [ ] Note emerging sub-sectors with limited data and explain their potential impact on the overall market dynamics
-- [ ] Analyze regional variations in market dynamics and growth potential, including emerging markets and saturated regions
+- [ ] Analyse regional variations in market dynamics and growth potential, including emerging markets and saturated regions
 - [ ] Assess the impact of macroeconomic factors on market growth and stability, including GDP growth, inflation, and interest rates
 - [ ] Evaluate the market's resilience to economic downturns and potential recovery scenarios
-- [ ] Analyze the market's position in the industry life cycle and implications for future growth
+- [ ] Analyse the market's position in the industry life cycle and implications for future growth
 
 #### 2. Financials & Valuation 💰
 - [ ] Present comprehensive revenue figures for each major company, sourced directly from financial reports where possible
@@ -95,7 +95,7 @@ Compile a comprehensive, data-driven report on the state of `[industry/market of
   - Alternative financing methods
 
 #### 5. Product & Industry Trends 🚀
-- [ ] Analyze emerging technologies and their impact
+- [ ] Analyse emerging technologies and their impact
 - [ ] Explore growth opportunities and market expansion
 - [ ] Assess:
   - Technology adoption timelines
@@ -104,7 +104,7 @@ Compile a comprehensive, data-driven report on the state of `[industry/market of
   - Industry benchmarks
 - [ ] Evaluate:
   - Sustainability factors
-  - Consumer behavior trends
+  - Consumer behaviour trends
   - Cross-industry convergence
   - Innovation drivers
   - Regulatory considerations
